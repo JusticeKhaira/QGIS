@@ -120,3 +120,35 @@ class ReportGenerator:
                 </tr>
             """
 
+         # Build detailed results section - UPDATED to include feature_name
+        detailed_section = ""
+        current_source = None
+        detailed_results = self.db_manager.get_detailed_results(
+            self.analysis_id, 
+            limit=1000  # Limit for performance
+        )
+        
+        for result in detailed_results:
+            if current_source != result['source_id']:
+                if current_source is not None:
+                    detailed_section += "</tbody></table></div>"
+                
+                current_source = result['source_id']
+                detailed_section += f"""
+                    <div class="detail-section">
+                        <h3>Source Feature ID: {current_source}</h3>
+                        <table class="detail-table">
+                            <thead>
+                                <tr>
+                                    <th>Target Layer</th>
+                                    <th>Target ID</th>
+                                    <th>Feature Name</th>
+                                    <th>Distance (m)</th>
+                                    <th>Buffer (m)</th>
+                                    <th>Area (m²)</th>
+                                    <th>Length (m)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                """
+
