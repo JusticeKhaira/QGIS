@@ -548,3 +548,131 @@ class ProximityAnalyzer:
                         success = err[0] == QgsVectorFileWriter.NoError
                     else:
                         success = (err == QgsVectorFileWriter.NoError)
+                                           if success:
+                        self.log_message(f"Saved to PostGIS: {cfg.get('database')}")
+                    else:
+                        self.log_message(f"Failed to save to PostGIS: {err}", Qgis.Warning)
+                except Exception as e:
+                    self.log_message(f"Error saving to PostGIS: {str(e)}", Qgis.Warning)
+        except Exception as e:
+            self.log_message(f"Unexpected error in save_output_to_geopackage: {str(e)}", Qgis.Critical)
+        finally:
+            # Ensure the output layer is updated in the project
+            if self.found_features_layer:
+                self.found_features_layer.triggerRepaint()
+
+    def calculate_summary(self, source_feature, target_layer, results, distance):
+        """Calculate summary statistics"""
+        if not results:
+            return None
+        
+        distances = [r['distance'] for r in results]
+        
+        return {
+            'source_id': source_feature.id(),
+            'target_layer': target_layer.name(),
+            'buffer_distance': distance,
+            'feature_count': len(results),
+            'min_distance': min(distances),
+            'max_distance': max(distances),
+            'avg_distance': sum(distances) / len(distances),
+            'total_area': 0,
+            'total_length': 0
+        }
+
+    def add_source_layer_to_map(self):
+        """Add highlighted source features to map"""
+        if not self.source_features_layer:
+            return
+        
+        try:
+            symbol = QgsSymbol.defaultSymbol(self.source_features_layer.geometryType())
+            
+            if self.source_features_layer.geometryType() == QgsWkbTypes.PointGeometry:
+                symbol.setColor(QColor(255, 0, 0))
+                symbol.setSize(6)
+            elif self.source_features_layer.geometryType() == QgsWkbTypes.LineGeometry:
+                symbol.setColor(QColor(255, 0, 0))
+                symbol.setWidth(1.5)
+            else:
+                symbol.setColor(QColor(255, 0, 0, 100))
+                symbol.symbolLayer(0).setStrokeColor(QColor(255, 0, 0))
+                symbol.symbolLayer(0).setStrokeWidth(1.5)
+            
+            self.source_features_layer.renderer().setSymbol(symbol)
+            self.source_features_layer.triggerRepaint()
+            
+            QgsProject.instance().addMapLayer(self.source_features_layer, True)
+            
+        except Exception as e:
+            self.log_message(f"Error styling source layer: {str(e)}", Qgis.Warning)
+
+    def add_shapefile_to_map(self, shp_path):
+        """Add shapefile to map with distance zone styling"""
+        try:
+            layer = QgsVectorLayer(shp_path, "Found Features by Distance Zone", "ogr")
+            
+            if layer.isValid():
+                self.style_by_distance_zones(layer)
+                
+                QgsProject.instance().addMapLayer(layer)
+                self.iface.mapCanvas().setExtent(layer.extent())
+                self.iface.mapCanvas().refresh()
+                self.iface.setActiveLayer(layer)
+                
+        except Exception as e:
+            self.log_message(f"Error adding to map: {str(e)}", Qgis.Warning)
+
+    def style_by_distance_zones(self, layer):
+        """Style layer with distinct colors for each distance zone"""
+        try:
+            distances = set()
+            for feature in layer.getFeatures():
+                distances.add(feature['buffer_m'])
+            
+            sorted_distances = sorted(distances)
+            
+            colors = [
+                QColor(0, 255, 0, 180),
+                QColor(150, 255, 0, 180),
+                QColor(255, 255, 0, 180),
+                QColor(255, 150, 0, 180),
+                QColor(255, 0, 0, 180),
+            ]
+            
+            ranges = []
+            for idx, dist in enumerate(sorted_distances):
+                if len(sorted_distances) <= len(colors):
+                    color = colors[idx]
+                else:
+                    color_idx = int(idx * (len(colors) - 1) / (len(sorted_distances) - 1))
+                    color = colors[color_idx]
+                
+                symbol = QgsSymbol.defaultSymbol(layer.geometryType())
+                
+                if layer.geometryType() == QgsWkbTypes.PointGeometry:
+                    symbol.setColor(color)
+                    symbol.setSize(5)
+                elif layer.geometryType() == QgsWkbTypes.LineGeometry:
+                    symbol.setColor(color)
+                    symbol.setWidth(0.8)
+                else:
+                    symbol.setColor(color)
+                    symbol.symbolLayer(0).setStrokeColor(QColor(0, 0, 0, 200))
+                    symbol.symbolLayer(0).setStrokeWidth(0.3)
+                
+                range_obj = QgsRendererRange(
+                    dist - 0.01,
+                    dist + 0.01,
+                    symbol,
+                    f"{dist:.0f}m zone (exclusive)"
+                )
+                ranges.append(range_obj)
+            
+            renderer = QgsGraduatedSymbolRenderer('buffer_m', ranges)
+            renderer.setMode(QgsGraduatedSymbolRenderer.Custom)
+            layer.setRenderer(renderer)
+            layer.triggerRepaint()
+            
+        except Exception as e:
+            self.log_message(f"Error styling: {str(e)}", Qgis.Warning)
