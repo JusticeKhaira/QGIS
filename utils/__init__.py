@@ -69,4 +69,16 @@ class ReportGenerator:
                     'Length (m)'
                 ])
 
-                
+                detailed_results = self.db_manager.get_detailed_results(self.analysis_id)
+                for result in detailed_results:
+                    writer.writerow([
+                        result['source_id'],
+                        result['target_layer'],
+                        result['target_id'],
+                        result.get('feature_name', ''),
+                        f"{result['distance']:.2f}",
+                        f"{result['buffer_distance']:.2f}",
+                        f"{result['area']:.2f}",
+                        f"{result['length']:.2f}"
+                    ])
+
