@@ -398,3 +398,153 @@ class ProximityAnalyzer:
             return
         
         try:
+             provider = self.found_features_layer.dataProvider()
+            current_field_names = set(field.name() for field in self.found_features_layer.fields())
+            
+            # Add target layer fields if not already present
+            new_fields = []
+            target_field_map = {}
+            
+            for field in target_layer.fields():
+                original_name = field.name()
+                prefixed_name = f"t_{original_name}"
+                target_field_map[original_name] = prefixed_name
+                
+                if prefixed_name not in current_field_names:
+                    new_field = QgsField(prefixed_name, field.type())
+                    new_field.setLength(field.length())
+                    new_field.setPrecision(field.precision())
+                    new_fields.append(new_field)
+                    current_field_names.add(prefixed_name)
+            
+            if new_fields:
+                provider.addAttributes(new_fields)
+                self.found_features_layer.updateFields()
+            
+            # Create features
+            features = []
+            current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            
+            for result in results:
+                feat = QgsFeature(self.found_features_layer.fields())
+                feat.setGeometry(result['geometry'])
+                
+                # Set metadata attributes
+                feat.setAttribute('result_id', len(self.results) + len(features) + 1)
+                feat.setAttribute('source_id', result['source_id'])
+                feat.setAttribute('src_layer', result['source_layer'])
+                feat.setAttribute('target_lyr', result['target_layer'])
+                feat.setAttribute('target_id', result['target_id'])
+                feat.setAttribute('feat_name', result.get('feature_name', ''))
+                feat.setAttribute('distance_m', round(result['distance'], 2))
+                feat.setAttribute('buffer_m', result['buffer_distance'])
+                feat.setAttribute('zone', result['zone'])
+                feat.setAttribute('found_date', current_time)
+                
+                # Set TARGET attributes
+                for original_name, attr_value in result['attributes'].items():
+                    prefixed_name = target_field_map.get(original_name)
+                    if prefixed_name and prefixed_name in current_field_names:
+                        feat.setAttribute(prefixed_name, attr_value)
+                
+                features.append(feat)
+            
+            if features:
+                provider.addFeatures(features)
+                self.results.extend(results)
+                self.found_features_layer.updateExtents()
+            
+        except Exception as e:
+            import traceback
+            self.log_message(f"Error adding features to output: {str(e)}\n{traceback.format_exc()}", Qgis.Critical)
+
+    def save_output_as_shapefile(self):
+        """Save output layer as Shapefile"""
+        if not self.found_features_layer or self.found_features_layer.featureCount() == 0:
+            return None
+        
+        try:
+            # Use internal db_path if available, otherwise fall back to project folder
+            if getattr(self, 'db_path', None):
+                base_path = self.db_path.replace('.gpkg', '')
+            else:
+                base_path = os.path.join(
+                    QgsProject.instance().homePath() or os.path.expanduser("~"),
+                    "proximity_analysis"
+                )
+            
+            shp_path = f"{base_path}_target_features.shp"
+            
+            error = QgsVectorFileWriter.writeAsVectorFormat(
+                self.found_features_layer,
+                shp_path,
+                "UTF-8",
+                self.found_features_layer.crs(),
+                "ESRI Shapefile"
+            )
+            
+            # QgsVectorFileWriter.writeAsVectorFormat returns either (error_code, error_message) or an int depending on QGIS version
+            if isinstance(error, tuple):
+                ok = error[0] == QgsVectorFileWriter.NoError
+            else:
+                ok = (error == QgsVectorFileWriter.NoError)
+            
+            if ok:
+                return shp_path
+            return None
+        except Exception as e:
+            self.log_message(f"Error saving shapefile: {str(e)}", Qgis.Warning)
+            return None
+
+    def save_output_to_geopackage(self):
+        """Save output layer to GeoPackage or PostGIS"""
+        if not self.found_features_layer or self.found_features_layer.featureCount() == 0:
+            return
+        
+        try:
+            options = QgsVectorFileWriter.SaveVectorOptions()
+            options.layerName = "found_target_features"
+            options.actionOnExistingFile = QgsVectorFileWriter.CreateOrOverwriteLayer
+
+            # If we have a GeoPackage path configured, write to GPKG
+            if getattr(self, 'db_path', None):
+                options.driverName = "GPKG"
+                try:
+                    err = QgsVectorFileWriter.writeAsVectorFormatV3(
+                        self.found_features_layer,
+                        self.db_path,
+                        QgsProject.instance().transformContext(),
+                        options
+                    )
+                    # writeAsVectorFormatV3 returns (err, message) or error code depending on QGIS version
+                    if isinstance(err, tuple):
+                        success = err[0] == QgsVectorFileWriter.NoError
+                    else:
+                        success = (err == QgsVectorFileWriter.NoError)
+                    if success:
+                        self.log_message(f"Saved to GeoPackage: {self.db_path}")
+                    else:
+                        self.log_message(f"Failed to save to GeoPackage: {err}", Qgis.Warning)
+                except Exception as e:
+                    self.log_message(f"Error writing to GeoPackage: {str(e)}", Qgis.Warning)
+            else:
+                # PostGIS: build a PG: connection string and let OGR handle layer creation
+                try:
+                    cfg = self.params.get('database_config', {})
+                    conn = ("PG:host={host} port={port} dbname={dbname} user={user} password={pwd}"
+                            .format(host=cfg.get('host', 'localhost'),
+                                    port=cfg.get('port', 5432),
+                                    dbname=cfg.get('database', ''),
+                                    user=cfg.get('user', ''),
+                                    pwd=cfg.get('password', '')))
+                    options.driverName = "PostgreSQL"
+                    err = QgsVectorFileWriter.writeAsVectorFormatV3(
+                        self.found_features_layer,
+                        conn,
+                        QgsProject.instance().transformContext(),
+                        options
+                    )
+                    if isinstance(err, tuple):
+                        success = err[0] == QgsVectorFileWriter.NoError
+                    else:
+                        success = (err == QgsVectorFileWriter.NoError)
