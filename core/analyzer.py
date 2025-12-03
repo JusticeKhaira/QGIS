@@ -198,3 +198,103 @@ class ProximityAnalyzer:
             self.log_message(f"ERROR: {str(e)}", Qgis.Critical)
             self.log_message(error_details, Qgis.Critical)
             return False, f"Analysis failed: {str(e)}", self.analysis_log
+            
+    def create_source_highlight_layer(self, source_layer, source_features):
+        """Create a layer to highlight selected source features"""
+        crs = source_layer.crs().authid()
+        geom_type = QgsWkbTypes.displayString(source_layer.wkbType())
+        
+        # Create memory layer for source features
+        self.source_features_layer = QgsVectorLayer(
+            f"{geom_type}?crs={crs}",
+            "Source Features (Search Origin)",
+            "memory"
+        )
+        
+        # Copy fields from source layer
+        provider = self.source_features_layer.dataProvider()
+        provider.addAttributes(source_layer.fields())
+        self.source_features_layer.updateFields()
+        
+        # Add features
+        features_to_add = []
+        for feat in source_features:
+            new_feat = QgsFeature(self.source_features_layer.fields())
+            new_feat.setGeometry(feat.geometry())
+            new_feat.setAttributes(feat.attributes())
+            features_to_add.append(new_feat)
+        
+        provider.addFeatures(features_to_add)
+        self.source_features_layer.updateExtents()
+
+    def create_output_layer(self, source_layer):
+        """Create memory layer to store found TARGET features with detailed attributes"""
+        crs = source_layer.crs().authid()
+        
+        # Create comprehensive fields for output layer
+        fields = QgsFields()
+        fields.append(QgsField("result_id", QVariant.Int))
+        fields.append(QgsField("source_id", QVariant.Int))
+        fields.append(QgsField("src_layer", QVariant.String, len=100))
+        fields.append(QgsField("target_lyr", QVariant.String, len=100))
+        fields.append(QgsField("target_id", QVariant.Int))
+        fields.append(QgsField("feat_name", QVariant.String, len=255))
+        fields.append(QgsField("distance_m", QVariant.Double, len=10, prec=2))
+        fields.append(QgsField("buffer_m", QVariant.Double, len=10, prec=2))
+        fields.append(QgsField("zone", QVariant.String, len=50))
+        fields.append(QgsField("found_date", QVariant.String, len=50))
+        
+        # Determine geometry type
+        geom_type = "Point"
+        for target_layer in self.params.get('target_layers', []):
+            if target_layer.geometryType() == QgsWkbTypes.PolygonGeometry:
+                geom_type = "MultiPolygon"
+                break
+            elif target_layer.geometryType() == QgsWkbTypes.LineGeometry:
+                geom_type = "MultiLineString"
+        
+        self.log_message(f"Output layer geometry type: {geom_type}")
+        
+        # Create memory layer
+        self.found_features_layer = QgsVectorLayer(
+            f"{geom_type}?crs={crs}",
+            "Proximity Results (Target Features)",
+            "memory"
+        )
+        
+        provider = self.found_features_layer.dataProvider()
+        provider.addAttributes(fields)
+        self.found_features_layer.updateFields()
+
+    def analyze_distance(self, source_features, source_layer, distance):
+        """Analyze features at a specific distance"""
+        
+        self.log_message(f"Analyzing {len(source_features)} source features at {distance}m buffer")
+        
+        # Distance calculator
+        distance_calc = QgsDistanceArea()
+        distance_calc.setSourceCrs(
+            source_layer.crs(),
+            QgsProject.instance().transformContext()
+        )
+        distance_calc.setEllipsoid(source_layer.crs().ellipsoidAcronym())
+        
+        zone_feature_count = 0
+        
+        # Process each source feature
+        for source_idx, source_feature in enumerate(source_features):
+            source_geom = source_feature.geometry()
+            buffer_geom = source_geom.buffer(distance, 16)
+            
+            # Analyze each target layer
+            for target_layer in self.params.get('target_layers', []):
+                results = self.find_features_in_buffer(
+                    source_feature,
+                    source_layer,
+                    target_layer,
+                    buffer_geom,
+                    distance_calc,
+                    distance
+                )
+                
+                zone_feature_count += len(results)
