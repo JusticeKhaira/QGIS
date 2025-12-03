@@ -27,3 +27,31 @@ class ReportGenerator:
                 csvfile.write(f"Source Layer: {self.metadata['source_layer']}\n")
                 csvfile.write(f"Date: {self.metadata['analysis_date']}\n")
                 csvfile.write("\n")
+                
+                # Write summary statistics
+                csvfile.write("Summary Statistics\n")
+                writer = csv.writer(csvfile)
+                writer.writerow([
+                    'Target Layer',
+                    'Buffer Distance (m)',
+                    'Total Count',
+                    'Min Distance (m)',
+                    'Max Distance (m)',
+                    'Avg Distance (m)',
+                    'Total Area (m²)',
+                    'Total Length (m)'
+                ])
+                
+                for stat in self.summary_stats:
+                    writer.writerow([
+                        stat['target_layer'],
+                        f"{stat['buffer_distance']:.2f}",
+                        stat['total_count'],
+                        f"{stat['min_distance']:.2f}",
+                        f"{stat['max_distance']:.2f}",
+                        f"{stat['avg_distance']:.2f}",
+                        f"{stat['total_area']:.2f}",
+                        f"{stat['total_length']:.2f}"
+                    ])
+                
+                csvfile.write("\n\n")
