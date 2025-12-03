@@ -298,3 +298,103 @@ class ProximityAnalyzer:
                 )
                 
                 zone_feature_count += len(results)
+                               
+                if results:
+                    self.log_message(f"  - Found {len(results)} NEW features in {target_layer.name()}")
+                
+                # Add TARGET features to output layer
+                self.add_features_to_output(results, target_layer)
+                
+                # Store results in database
+                if results:
+                    self.db_manager.insert_proximity_results(self.analysis_id, results)
+                    summary = self.calculate_summary(source_feature, target_layer, results, distance)
+                    self.db_manager.insert_summary(self.analysis_id, summary)
+        
+        self.log_message(f"Zone {distance}m: Added {zone_feature_count} features (excluding duplicates from smaller zones)")
+
+    def find_features_in_buffer(self, source_feature, source_layer, target_layer, 
+                                buffer_geom, distance_calc, buffer_distance):
+        """Find all TARGET features from target layer within buffer (EXCLUSIVE - skip if found in smaller zone)"""
+        results = []
+        
+        try:
+            spatial_index = QgsSpatialIndex(target_layer.getFeatures())
+            buffer_bbox = buffer_geom.boundingBox()
+            candidate_ids = spatial_index.intersects(buffer_bbox)
+            
+            for feat_id in candidate_ids:
+                target_feature = target_layer.getFeature(feat_id)
+                target_geom = target_feature.geometry()
+                
+                if not target_geom or target_geom.isNull():
+                    continue
+                
+                # Create unique key for this feature (without distance)
+                feature_key = f"{target_layer.id()}_{feat_id}"
+                
+                # CRITICAL: Skip if already processed in a SMALLER distance zone
+                if feature_key in self.processed_features:
+                    # Feature was already found in a closer zone, skip it
+                    continue
+                
+                if buffer_geom.intersects(target_geom):
+                    try:
+                        actual_distance = source_feature.geometry().distance(target_geom)
+                        
+                        if source_layer.geometryType() == QgsWkbTypes.PointGeometry or \
+                           target_layer.geometryType() == QgsWkbTypes.PointGeometry:
+                            source_point = source_feature.geometry().centroid().asPoint()
+                            target_point = target_geom.centroid().asPoint()
+                            actual_distance = distance_calc.measureLine(source_point, target_point)
+                    except Exception as e:
+                        self.log_message(f"Distance calculation error: {str(e)}", Qgis.Warning)
+                        actual_distance = 0.0
+                    
+                    if actual_distance <= buffer_distance:
+                        # Mark this feature as processed in THIS zone
+                        self.processed_features[feature_key] = buffer_distance
+                        
+                        # Get attributes from TARGET feature
+                        attributes = {}
+                        feature_name = ""
+                        
+                        for field in target_layer.fields():
+                            field_name = field.name()
+                            try:
+                                value = target_feature[field_name]
+                                attributes[field_name] = value
+                                
+                                if not feature_name and 'name' in field_name.lower():
+                                    feature_name = str(value) if value else ""
+                            except:
+                                attributes[field_name] = None
+                        
+                        zone_label = f"{buffer_distance}m zone"
+                        
+                        result = {
+                            'source_id': source_feature.id(),
+                            'source_layer': source_layer.name(),
+                            'target_layer': target_layer.name(),
+                            'target_id': target_feature.id(),
+                            'feature_name': feature_name,
+                            'distance': actual_distance,
+                            'buffer_distance': buffer_distance,
+                            'zone': zone_label,
+                            'attributes': attributes,
+                            'geometry': target_geom
+                        }
+                        
+                        results.append(result)
+        
+        except Exception as e:
+            self.log_message(f"Error finding features in buffer: {str(e)}", Qgis.Warning)
+        
+        return results
+
+    def add_features_to_output(self, results, target_layer):
+        """Add found TARGET features to output layer with ALL their attributes"""
+        if not results:
+            return
+        
+        try:
