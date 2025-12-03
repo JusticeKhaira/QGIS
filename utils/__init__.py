@@ -168,3 +168,106 @@ class ReportGenerator:
         if current_source is not None:
             detailed_section += "</tbody></table></div>"
 
+
+         # Create complete HTML
+        html = f"""
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Proximity Analysis Report</title>
+    <style>
+        body {{
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }}
+        .container {{
+            max-width: 1400px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 30px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }}
+        .header {{
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 5px;
+            margin-bottom: 30px;
+        }}
+        .header h1 {{
+            margin: 0 0 10px 0;
+        }}
+        .header p {{
+            margin: 5px 0;
+            opacity: 0.9;
+        }}
+        .summary-box {{
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 20px;
+            margin: 20px 0;
+        }}
+        .summary-box h2 {{
+            margin-top: 0;
+            color: #333;
+        }}
+        .feature-count {{
+            font-size: 48px;
+            font-weight: bold;
+            color: #667eea;
+            margin: 10px 0;
+        }}
+        table {{
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }}
+        th, td {{
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }}
+        th {{
+            background-color: #667eea;
+            color: white;
+            font-weight: 600;
+        }}
+        tr:hover {{
+            background-color: #f5f5f5;
+        }}
+        .count {{
+            font-weight: bold;
+            color: #667eea;
+        }}
+        .detail-section {{
+            margin: 30px 0;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 5px;
+            border-left: 4px solid #667eea;
+        }}
+        .detail-section h3 {{
+            color: #667eea;
+            margin-top: 0;
+        }}
+        .detail-table {{
+            font-size: 14px;
+            background: white;
+        }}
+        .footer {{
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+            text-align: center;
+            color: #666;
+            font-size: 14px;
+        }}
+        strong {{
+            color: #667eea;
+        }}
+    </style>
+</head>
