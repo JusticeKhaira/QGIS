@@ -152,3 +152,19 @@ class ReportGenerator:
                             <tbody>
                 """
 
+             feature_name = result.get('feature_name', '-')
+            detailed_section += f"""
+                <tr>
+                    <td>{result['target_layer']}</td>
+                    <td>{result['target_id']}</td>
+                    <td><strong>{feature_name}</strong></td>
+                    <td>{result['distance']:.2f}</td>
+                    <td>{result['buffer_distance']:.2f}</td>
+                    <td>{result['area']:.2f}</td>
+                    <td>{result['length']:.2f}</td>
+                </tr>
+            """
+        
+        if current_source is not None:
+            detailed_section += "</tbody></table></div>"
+
