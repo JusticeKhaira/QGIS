@@ -99,4 +99,24 @@ class ReportGenerator:
         except Exception as e:
             print(f"Error generating HTML report: {str(e)}")
             return False
+     def _create_html_content(self):
+        """Create HTML content for report"""
+        # Calculate totals
+        total_features = sum(stat['total_count'] for stat in self.summary_stats)
+        
+        # Build summary table rows
+        summary_rows = ""
+        for stat in self.summary_stats:
+            summary_rows += f"""
+                <tr>
+                    <td>{stat['target_layer']}</td>
+                    <td>{stat['buffer_distance']:.2f}</td>
+                    <td class="count">{stat['total_count']}</td>
+                    <td>{stat['min_distance']:.2f}</td>
+                    <td>{stat['max_distance']:.2f}</td>
+                    <td>{stat['avg_distance']:.2f}</td>
+                    <td>{stat['total_area']:.2f}</td>
+                    <td>{stat['total_length']:.2f}</td>
+                </tr>
+            """
 
