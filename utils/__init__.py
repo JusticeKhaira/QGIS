@@ -55,3 +55,18 @@ class ReportGenerator:
                     ])
                 
                 csvfile.write("\n\n")
+
+                 # Write detailed results - UPDATED to include feature_name
+                csvfile.write("Detailed Results\n")
+                writer.writerow([
+                    'Source Feature ID',
+                    'Target Layer',
+                    'Target Feature ID',
+                    'Feature Name',
+                    'Distance (m)',
+                    'Buffer Distance (m)',
+                    'Area (m²)',
+                    'Length (m)'
+                ])
+
+                
