@@ -5,8 +5,8 @@ qgisMaximumVersion=3.99
 description=Find and analyze geographic features within specified distances with multiple distance zones
 about=This plugin helps identify features within buffer zones around source features. Features include: multiple distance zones with distinct colors, comprehensive attribute preservation, detailed reports (CSV/HTML), and spatial analysis tools.
 version=1.0.0
-author=Your Name
-email=your.email@example.com
+author= Group 12
+email=bsc-inf-18-22@unima.ac.mw, bsc-inf-28-22@unima.ac.mw, bsc-inf-10-22@unima.ac.mw, bsc-inf-11-21@unima.ac.mw
 
 # Plugin icon
 icon=icon.png
@@ -18,9 +18,9 @@ tags=proximity, buffer, spatial analysis, distance, search, vector
 category=Vector
 
 # Homepage and repository
-homepage=https://github.com/yourusername/proximity-finder
-repository=https://github.com/yourusername/proximity-finder
-tracker=https://github.com/yourusername/proximity-finder/issues
+homepage=https://github.com/JusticeKhaira/QGIS
+repository=https://github.com/JusticeKhaira/QGIS
+tracker=https://github.com/JusticeKhaira/QGIS/issues
 
 # Changelog
 changelog=
