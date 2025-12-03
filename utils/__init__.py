@@ -82,3 +82,21 @@ class ReportGenerator:
                         f"{result['length']:.2f}"
                     ])
 
+             return True
+        except Exception as e:
+            print(f"Error generating CSV report: {str(e)}")
+            return False
+
+    def generate_html_report(self, output_path):
+        """Generate HTML report"""
+        try:
+            html_content = self._create_html_content()
+            
+            with open(output_path, 'w', encoding='utf-8') as f:
+                f.write(html_content)
+            
+            return True
+        except Exception as e:
+            print(f"Error generating HTML report: {str(e)}")
+            return False
+
