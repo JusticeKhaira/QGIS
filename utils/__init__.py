@@ -1,5 +1,5 @@
 """
-Utilities module for Proximity Feature Finder
+Generate reports for proximity analysis results
 """
 import csv
 import os
@@ -55,8 +55,8 @@ class ReportGenerator:
                     ])
                 
                 csvfile.write("\n\n")
-
-                 # Write detailed results - UPDATED to include feature_name
+                
+                # Write detailed results - UPDATED to include feature_name
                 csvfile.write("Detailed Results\n")
                 writer.writerow([
                     'Source Feature ID',
@@ -68,7 +68,7 @@ class ReportGenerator:
                     'Area (m²)',
                     'Length (m)'
                 ])
-
+                
                 detailed_results = self.db_manager.get_detailed_results(self.analysis_id)
                 for result in detailed_results:
                     writer.writerow([
@@ -81,8 +81,8 @@ class ReportGenerator:
                         f"{result['area']:.2f}",
                         f"{result['length']:.2f}"
                     ])
-
-             return True
+            
+            return True
         except Exception as e:
             print(f"Error generating CSV report: {str(e)}")
             return False
@@ -99,7 +99,8 @@ class ReportGenerator:
         except Exception as e:
             print(f"Error generating HTML report: {str(e)}")
             return False
-     def _create_html_content(self):
+
+    def _create_html_content(self):
         """Create HTML content for report"""
         # Calculate totals
         total_features = sum(stat['total_count'] for stat in self.summary_stats)
@@ -119,8 +120,8 @@ class ReportGenerator:
                     <td>{stat['total_length']:.2f}</td>
                 </tr>
             """
-
-         # Build detailed results section - UPDATED to include feature_name
+        
+        # Build detailed results section - UPDATED to include feature_name
         detailed_section = ""
         current_source = None
         detailed_results = self.db_manager.get_detailed_results(
@@ -151,8 +152,8 @@ class ReportGenerator:
                             </thead>
                             <tbody>
                 """
-
-             feature_name = result.get('feature_name', '-')
+            
+            feature_name = result.get('feature_name', '-')
             detailed_section += f"""
                 <tr>
                     <td>{result['target_layer']}</td>
@@ -167,9 +168,8 @@ class ReportGenerator:
         
         if current_source is not None:
             detailed_section += "</tbody></table></div>"
-
-
-         # Create complete HTML
+        
+        # Create complete HTML
         html = f"""
 <!DOCTYPE html>
 <html lang="en">
